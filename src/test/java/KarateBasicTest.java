@@ -1,12 +1,17 @@
-import com.intuit.karate.junit5.Karate;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import com.intuit.karate.Results;
+import com.intuit.karate.Runner;
 
 class KarateBasicTest {
     static {
         System.setProperty("karate.ssl", "true");
     }
-    @Karate.Test
-    Karate testBasic() {
-        return Karate.run("classpath:karate-test.feature");
-    }
 
+    @Test
+    void testMarvelCharactersAPI() {
+        Results results = Runner.path("classpath:karate-test.feature").parallel(1);
+        assertEquals(0, results.getFailCount(), results.getErrorMessages());
+    }
 }
