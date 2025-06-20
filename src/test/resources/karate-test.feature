@@ -5,39 +5,12 @@ Feature: Marvel Characters API Tests
     * def baseUrl = 'http://bp-se-test-cabcd9b246a5.herokuapp.com'
     * def username = 'bzamora'
     * configure ssl = true
-    * def ironMan = 
-    """
-    {
-      "name": "Iron Man",
-      "alterego": "Tony Stark",
-      "description": "Genius billionaire",
-      "powers": ["Armor", "Flight"]
-    }
-    """
-    * def generateRandomName = function(){ return 'Hero-' + java.util.UUID.randomUUID().toString().substring(0,8) }
-    * def emptyCharacter = 
-    """
-    {
-      "name": "",
-      "alterego": "",
-      "description": "",
-      "powers": []
-    }
-    """
-    * def shared = {}
+    * def testData = call read('test-data.js')
 
   @post @setup
   Scenario: Setup - Crear personaje para pruebas
-    * def randomName = generateRandomName()
-    * def testHero = 
-    """
-    {
-      "name": "#(randomName)",
-      "alterego": "Peter Parker",
-      "description": "Superhéroe arácnido de Marvel",
-      "powers": ["Agilidad", "Sentido arácnido", "Trepar muros"]
-    }
-    """
+    * def randomName = testData.generateRandomName()
+    * def testHero = testData.createCharacter(randomName, "Peter Parker", "Superhéroe arácnido de Marvel", ["Agilidad", "Sentido arácnido", "Trepar muros"])
     Given url baseUrl + '/' + username + '/api/characters'
     And header Content-Type = 'application/json'
     And request testHero
@@ -50,16 +23,8 @@ Feature: Marvel Characters API Tests
 
   @post @id:1 @creacionPersonaje
   Scenario: Crear personaje (exitoso)
-    * def randomName = generateRandomName()
-    * def newHero = 
-    """
-    {
-      "name": "#(randomName)",
-      "alterego": "Bruce Wayne",
-      "description": "El caballero de la noche",
-      "powers": ["Inteligencia", "Artes marciales", "Tecnología"]
-    }
-    """
+    * def randomName = testData.generateRandomName()
+    * def newHero = testData.createCharacter(randomName, "Bruce Wayne", "El caballero de la noche", ["Inteligencia", "Artes marciales", "Tecnología"])
     Given url baseUrl + '/' + username + '/api/characters'
     And header Content-Type = 'application/json'
     And request newHero
@@ -72,15 +37,7 @@ Feature: Marvel Characters API Tests
   @post @id:2 @creacionPersonaje @error
   Scenario: Crear personaje con nombre duplicado
     * def mainChar = call read('karate-test.feature@setup')
-    * def duplicateHero = 
-    """
-    {
-      "name": "#(mainChar.result.name)",
-      "alterego": "Peter Parker",
-      "description": "Superhéroe arácnido de Marvel",
-      "powers": ["Agilidad", "Sentido arácnido", "Trepar muros"]
-    }
-    """
+    * def duplicateHero = testData.createCharacter(mainChar.result.name, "Peter Parker", "Superhéroe arácnido de Marvel", ["Agilidad", "Sentido arácnido", "Trepar muros"])
     Given url baseUrl + '/' + username + '/api/characters'
     And header Content-Type = 'application/json'
     And request duplicateHero
@@ -90,9 +47,10 @@ Feature: Marvel Characters API Tests
 
   @post @id:3 @creacionPersonaje @error
   Scenario: Crear personaje con campos requeridos vacíos
+    * def emptyHero = testData.createCharacter()
     Given url baseUrl + '/' + username + '/api/characters'
     And header Content-Type = 'application/json'
-    And request emptyCharacter
+    And request emptyHero
     When method POST
     Then status 400
     And match response contains { name: 'Name is required' }
@@ -124,15 +82,7 @@ Feature: Marvel Characters API Tests
   @put @id:7 @actualizacionPersonaje
   Scenario: Actualizar personaje (exitoso)
     * def mainChar = call read('karate-test.feature@setup')
-    * def updatedCharacter = 
-    """
-    {
-      "name": "Spider-Man Updated",
-      "alterego": "Peter Parker",
-      "description": "El trepamuros más famoso",
-      "powers": ["Agilidad", "Sentido arácnido", "Trepar muros", "Super fuerza"]
-    }
-    """
+    * def updatedCharacter = testData.createCharacter("Spider-Man Updated", "Peter Parker", "El trepamuros más famoso", ["Agilidad", "Sentido arácnido", "Trepar muros", "Super fuerza"])
     Given url baseUrl + '/' + username + '/api/characters/' + mainChar.result.id
     And header Content-Type = 'application/json'
     And request updatedCharacter
@@ -143,6 +93,7 @@ Feature: Marvel Characters API Tests
 
   @put @id:8 @actualizacionPersonaje @error
   Scenario: Actualizar personaje (no existe)
+    * def ironMan = testData.createCharacter("Iron Man", "Tony Stark", "Genius billionaire", ["Armor", "Flight"])
     Given url baseUrl + '/' + username + '/api/characters/999'
     And header Content-Type = 'application/json'
     And request ironMan
