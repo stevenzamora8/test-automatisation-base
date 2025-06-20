@@ -24,35 +24,10 @@ Feature: Marvel Characters API Tests
       "powers": []
     }
     """
+    * def shared = {}
 
-  @get @id:1 @consultaPersonajes
-  Scenario: Obtener todos los personajes
-    Given url baseUrl + '/' + username + '/api/characters'
-    When method GET
-    Then status 200
-    And match response == '#array'
-  @get @id:2 @consultaPersonaje
-  Scenario: Obtener personaje por ID (exitoso)
-    # Primero obtenemos la lista de personajes
-    Given url baseUrl + '/' + username + '/api/characters'
-    When method GET
-    Then status 200
-    * def characterId = response.length > 0 ? response[0].id : karate.call('classpath:create-character.feature').id
-
-    # Obtenemos el personaje creado
-    Given url baseUrl + '/' + username + '/api/characters/' + characterId
-    When method GET
-    Then status 200
-    And match response == { id: '#(characterId)', name: '#(ironMan.name)', alterego: '#(ironMan.alterego)', description: '#(ironMan.description)', powers: '#(ironMan.powers)' }
-
-  @get @id:3 @consultaPersonaje @error
-  Scenario: Obtener personaje por ID (no existe)
-    Given url baseUrl + '/' + username + '/api/characters/999'
-    When method GET
-    Then status 404
-    And match response == { error: 'Character not found' }
-  @post @id:4 @creacionPersonaje
-  Scenario: Crear personaje (exitoso)
+  @post @setup
+  Scenario: Setup - Crear personaje para pruebas
     * def randomName = generateRandomName()
     * def testHero = 
     """
@@ -70,71 +45,95 @@ Feature: Marvel Characters API Tests
     Then status 201
     And match response contains testHero
     * def characterId = response.id
-  @post @id:5 @creacionPersonaje @error
-  Scenario: Crear personaje (nombre duplicado)
-    # Primero creamos un personaje con nombre aleatorio
+    * def characterName = response.name
+    * def result = { id: '#(characterId)', name: '#(characterName)' }
+
+  @post @id:1 @creacionPersonaje
+  Scenario: Crear personaje (exitoso)
     * def randomName = generateRandomName()
-    * def firstHero = 
+    * def newHero = 
     """
     {
       "name": "#(randomName)",
-      "alterego": "John Doe",
-      "description": "Test hero",
-      "powers": ["Test power"]
+      "alterego": "Bruce Wayne",
+      "description": "El caballero de la noche",
+      "powers": ["Inteligencia", "Artes marciales", "Tecnología"]
     }
     """
     Given url baseUrl + '/' + username + '/api/characters'
     And header Content-Type = 'application/json'
-    And request firstHero
+    And request newHero
     When method POST
     Then status 201
+    And match response contains newHero
+    And match response.id == '#number'
+    And match response.name == newHero.name
 
-    # Intentamos crear otro con el mismo nombre
+  @post @id:2 @creacionPersonaje @error
+  Scenario: Crear personaje con nombre duplicado
+    * def mainChar = call read('karate-test.feature@setup')
+    * def duplicateHero = 
+    """
+    {
+      "name": "#(mainChar.result.name)",
+      "alterego": "Peter Parker",
+      "description": "Superhéroe arácnido de Marvel",
+      "powers": ["Agilidad", "Sentido arácnido", "Trepar muros"]
+    }
+    """
     Given url baseUrl + '/' + username + '/api/characters'
     And header Content-Type = 'application/json'
-    And request firstHero
+    And request duplicateHero
     When method POST
     Then status 400
     And match response == { error: 'Character name already exists' }
 
-  @post @id:6 @creacionPersonaje @error
-  Scenario: Crear personaje (faltan campos requeridos)
+  @post @id:3 @creacionPersonaje @error
+  Scenario: Crear personaje con campos requeridos vacíos
     Given url baseUrl + '/' + username + '/api/characters'
     And header Content-Type = 'application/json'
     And request emptyCharacter
     When method POST
     Then status 400
-    And match response contains { name: 'Name is required' }  @put @id:7 @actualizacionPersonaje
-  Scenario: Actualizar personaje (exitoso)
-    # Primero creamos un personaje con nombre aleatorio
-    * def randomName = generateRandomName()
-    * def testHero = 
-    """
-    {
-      "name": "#(randomName)",
-      "alterego": "Peter Parker",
-      "description": "Superhéroe base",
-      "powers": ["Agilidad"]
-    }
-    """
-    Given url baseUrl + '/' + username + '/api/characters'
-    And header Content-Type = 'application/json'
-    And request testHero
-    When method POST
-    Then status 201
-    * def characterId = response.id
+    And match response contains { name: 'Name is required' }
 
-    # Lo actualizamos
+  @get @id:4 @consultaPersonajes
+  Scenario: Obtener todos los personajes
+    * def mainChar = call read('karate-test.feature@setup')
+    Given url baseUrl + '/' + username + '/api/characters'
+    When method GET
+    Then status 200
+    And match response == '#array'
+    And match response[*].id contains mainChar.result.id
+
+  @get @id:5 @consultaPersonaje
+  Scenario: Obtener personaje por ID (exitoso)
+    * def mainChar = call read('karate-test.feature@setup')
+    Given url baseUrl + '/' + username + '/api/characters/' + mainChar.result.id
+    When method GET
+    Then status 200
+    And match response.id == mainChar.result.id
+
+  @get @id:6 @consultaPersonaje @error
+  Scenario: Obtener personaje por ID (no existe)
+    Given url baseUrl + '/' + username + '/api/characters/999'
+    When method GET
+    Then status 404
+    And match response == { error: 'Character not found' }
+
+  @put @id:7 @actualizacionPersonaje
+  Scenario: Actualizar personaje (exitoso)
+    * def mainChar = call read('karate-test.feature@setup')
     * def updatedCharacter = 
     """
     {
-      "name": "Iron Man",
-      "alterego": "Tony Stark",
-      "description": "Genius billionaire playboy philanthropist",
-      "powers": ["Armor", "Flight", "Intelligence"]
+      "name": "Spider-Man Updated",
+      "alterego": "Peter Parker",
+      "description": "El trepamuros más famoso",
+      "powers": ["Agilidad", "Sentido arácnido", "Trepar muros", "Super fuerza"]
     }
     """
-    Given url baseUrl + '/' + username + '/api/characters/' + characterId
+    Given url baseUrl + '/' + username + '/api/characters/' + mainChar.result.id
     And header Content-Type = 'application/json'
     And request updatedCharacter
     When method PUT
@@ -153,31 +152,13 @@ Feature: Marvel Characters API Tests
 
   @delete @id:9 @eliminacionPersonaje
   Scenario: Eliminar personaje (exitoso)
-    # Creamos un personaje primero
-    * def randomName = generateRandomName()
-    * def testHero = 
-    """
-    {
-      "name": "#(randomName)",
-      "alterego": "Peter Parker",
-      "description": "Superhéroe arácnido de Marvel",
-      "powers": ["Agilidad", "Sentido arácnido", "Trepar muros"]
-    }
-    """
-    Given url baseUrl + '/' + username + '/api/characters'
-    And header Content-Type = 'application/json'
-    And request testHero
-    When method POST
-    Then status 201
-    * def characterId = response.id
-
-    # Lo eliminamos
-    Given url baseUrl + '/' + username + '/api/characters/' + characterId
+    * def mainChar = call read('karate-test.feature@setup')
+    Given url baseUrl + '/' + username + '/api/characters/' + mainChar.result.id
     When method DELETE
     Then status 204
 
     # Verificamos que fue eliminado
-    Given url baseUrl + '/' + username + '/api/characters/' + characterId
+    Given url baseUrl + '/' + username + '/api/characters/' + mainChar.result.id
     When method GET
     Then status 404
 
